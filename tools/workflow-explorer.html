@@ -146,6 +146,10 @@ const edgeLayer = document.getElementById('edges-layer');
 const list = document.getElementById('workflow-list');
 const active = document.getElementById('active-label');
 const steps = document.getElementById('workflow-steps');
+const nodeMap = Object.fromEntries(DATA.nodes.map((node) => [node.id, node]));
+const edgeMap = Object.fromEntries(DATA.edges.map((edge) => [edge.id, edge]));
+let currentItem;
+let activeStep = -1;
 
 function center(node, bottom = false) {
   return [node.x + node.w / 2, node.y + (bottom ? node.h : 0)];
@@ -153,8 +157,8 @@ function center(node, bottom = false) {
 
 function draw() {
   DATA.edges.forEach((edge) => {
-    const from = DATA.nodes.find((node) => node.id === edge.from);
-    const to = DATA.nodes.find((node) => node.id === edge.to);
+    const from = nodeMap[edge.from];
+    const to = nodeMap[edge.to];
     const [x1, y1] = center(from, true);
     const [x2, y2] = center(to);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -193,52 +197,218 @@ function draw() {
     sub.setAttribute('y', node.y + 42);
     sub.textContent = node.sub;
     g.append(rect, label, sub);
+    g.addEventListener('click', () => showNode(node.id));
     nodeLayer.append(g);
   });
 }
 
-function render(item) {
-  active.textContent = `${item.syntax} — ${item.label}`;
-  document.querySelectorAll('.workflow-command').forEach((button) => {
-    button.classList.toggle('active', button.dataset.id === item.id);
+function allCommands() {
+  return DATA.groups.flatMap((group) => group.items);
+}
+
+function normalizeStep(item, step, index) {
+  if (!Array.isArray(step)) return step;
+  const [code, text] = step;
+  const haystack = `${code} ${text}`.toLowerCase();
+  const nodes = new Set(['cli']);
+  const edges = new Set();
+
+  if (/auth|token|ims/.test(haystack)) nodes.add('auth');
+  if (/token|cache|\.hlx|\.da-token/.test(haystack)) nodes.add('token');
+  if (/content|seed|clone|source|document|workspace|walks local/.test(haystack)) nodes.add('content');
+  if (/preview|publish|deploy|route|index|guard|delivery|status/.test(haystack)) nodes.add('delivery');
+  if (/daclient|helixadminclient|client|fetch|upload|flush|post|putsource/.test(haystack)) nodes.add('client');
+  if (/admin\.da|da source|content-bus|source storage|\/source|\/list/.test(haystack)) nodes.add('da');
+  if (/admin\.hlx|helix|aem\.page|aem\.live|preview url|live url|query-index/.test(haystack)) nodes.add('helix');
+  if (/git|blocks|styles|tools|code-bus|checkout|workspace/.test(haystack)) nodes.add('git');
+  if (/stdout|json|url|table|print|reports|output/.test(haystack)) nodes.add('output');
+
+  const commandNodes = item.nodes.filter((nodeId) => nodes.has(nodeId));
+  if (commandNodes.length <= 1) {
+    const span = Math.max(1, Math.ceil(item.nodes.length / item.steps.length));
+    item.nodes.slice(index * span, (index + 1) * span + 1).forEach((nodeId) => nodes.add(nodeId));
+  }
+
+  item.edges.forEach((edgeId) => {
+    const edge = edgeMap[edgeId];
+    if (!edge) return;
+    if (nodes.has(edge.from) && nodes.has(edge.to)) edges.add(edgeId);
   });
-  document.querySelectorAll('.nd').forEach((node) => {
-    node.classList.toggle('hi', item.nodes.includes(node.id));
-    node.classList.toggle('dim', !item.nodes.includes(node.id));
-  });
+
+  if (!edges.size) {
+    const span = Math.max(1, Math.ceil(item.edges.length / item.steps.length));
+    item.edges.slice(index * span, (index + 1) * span + 1).forEach((edgeId) => edges.add(edgeId));
+    [...edges].forEach((edgeId) => {
+      const edge = edgeMap[edgeId];
+      if (edge) {
+        nodes.add(edge.from);
+        nodes.add(edge.to);
+      }
+    });
+  }
+
+  return {
+    code,
+    text,
+    nodes: [...nodes].filter((nodeId) => item.nodes.includes(nodeId)),
+    edges: [...edges].filter((edgeId) => item.edges.includes(edgeId)),
+  };
+}
+
+function getSteps(item) {
+  return item.steps.map((step, index) => normalizeStep(item, step, index));
+}
+
+function resetDiagram() {
+  document.querySelectorAll('.nd').forEach((node) => node.classList.remove('hi', 'dim'));
   DATA.edges.forEach((edge) => {
     const path = document.getElementById(edge.id);
     const label = document.getElementById(`${edge.id}-label`);
-    const on = item.edges.includes(edge.id);
-    path.className.baseVal = `edge ${on ? `hi hi-${edge.color}` : 'dim'}`;
-    path.setAttribute('marker-end', on ? `url(#arr-${edge.color})` : 'url(#arr)');
-    label.className.baseVal = `edgelbl ${on ? 'hi' : 'dim'}`;
+    path.className.baseVal = 'edge';
+    path.setAttribute('marker-end', 'url(#arr)');
+    label.className.baseVal = 'edgelbl';
   });
-  steps.replaceChildren(...item.steps.map(([code, text], index) => {
+}
+
+function setNodeState(nodeId, state) {
+  const node = document.getElementById(nodeId);
+  if (!node) return;
+  node.classList.remove('hi', 'dim');
+  if (state) node.classList.add(state);
+}
+
+function setEdgeState(edgeId, state) {
+  const edge = edgeMap[edgeId];
+  const path = document.getElementById(edgeId);
+  const label = document.getElementById(`${edgeId}-label`);
+  if (!edge || !path || !label) return;
+  if (state === 'hi') {
+    path.className.baseVal = `edge hi hi-${edge.color}`;
+    path.setAttribute('marker-end', `url(#arr-${edge.color})`);
+    label.className.baseVal = 'edgelbl hi';
+  } else if (state === 'dim') {
+    path.className.baseVal = 'edge dim';
+    path.setAttribute('marker-end', 'url(#arr)');
+    label.className.baseVal = 'edgelbl dim';
+  } else {
+    path.className.baseVal = 'edge';
+    path.setAttribute('marker-end', 'url(#arr)');
+    label.className.baseVal = 'edgelbl';
+  }
+}
+
+function highlight(nodes, edges) {
+  const nodeSet = new Set(nodes);
+  const edgeSet = new Set(edges);
+  DATA.nodes.forEach((node) => setNodeState(node.id, nodeSet.has(node.id) ? 'hi' : 'dim'));
+  DATA.edges.forEach((edge) => setEdgeState(edge.id, edgeSet.has(edge.id) ? 'hi' : 'dim'));
+}
+
+function highlightAll(item) {
+  highlight(item.nodes, item.edges);
+}
+
+function highlightStep(item, index) {
+  const step = getSteps(item)[index];
+  if (!step) return;
+  const commandNodes = new Set(item.nodes);
+  const commandEdges = new Set(item.edges);
+  resetDiagram();
+  DATA.nodes.forEach((node) => {
+    if (!commandNodes.has(node.id)) setNodeState(node.id, 'dim');
+  });
+  DATA.edges.forEach((edge) => {
+    if (!commandEdges.has(edge.id)) setEdgeState(edge.id, 'dim');
+  });
+  commandNodes.forEach((nodeId) => {
+    if (!step.nodes.includes(nodeId)) setNodeState(nodeId, 'dim');
+  });
+  commandEdges.forEach((edgeId) => {
+    if (!step.edges.includes(edgeId)) setEdgeState(edgeId, 'dim');
+  });
+  step.nodes.forEach((nodeId) => setNodeState(nodeId, 'hi'));
+  step.edges.forEach((edgeId) => setEdgeState(edgeId, 'hi'));
+}
+
+function showNode(nodeId) {
+  const node = nodeMap[nodeId];
+  if (!node) return;
+  active.textContent = `${node.label} — ${node.sub}`;
+  highlight([nodeId], DATA.edges.filter((edge) => edge.from === nodeId || edge.to === nodeId).map((edge) => edge.id));
+  document.querySelectorAll('.workflow-step').forEach((row) => row.classList.remove('active'));
+}
+
+function render(item) {
+  currentItem = item;
+  activeStep = -1;
+  active.innerHTML = `<span class="workflow-prompt">$</span> ${item.syntax}<span class="workflow-muted"> — ${item.label}</span>`;
+  document.querySelectorAll('.workflow-command').forEach((button) => {
+    button.classList.toggle('active', button.dataset.id === item.id);
+  });
+  highlightAll(item);
+
+  const title = document.createElement('div');
+  title.className = 'workflow-step-title';
+  title.innerHTML = `<span>${item.label} execution</span><span>${item.steps.length} selectable steps</span>`;
+  steps.replaceChildren(title, ...getSteps(item).map((step, index) => {
     const row = document.createElement('div');
     row.className = 'workflow-step';
-    row.innerHTML = `<div class="workflow-step-number">${index + 1}</div><div><div class="workflow-step-code">${code}</div><div class="workflow-step-text">${text}</div></div>`;
-    row.addEventListener('mouseenter', () => row.classList.add('active'));
-    row.addEventListener('mouseleave', () => row.classList.remove('active'));
+    row.dataset.index = index;
+    row.tabIndex = 0;
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-pressed', 'false');
+    row.innerHTML = `<div class="workflow-step-number">${index + 1}</div><div class="workflow-step-body"><div class="workflow-step-code">${step.code}</div><div class="workflow-step-text">${step.text}</div></div>`;
+    row.addEventListener('mouseenter', () => {
+      if (activeStep < 0) highlightStep(item, index);
+    });
+    row.addEventListener('mouseleave', () => {
+      if (activeStep < 0) highlightAll(item);
+    });
+    row.addEventListener('click', () => {
+      activeStep = activeStep === index ? -1 : index;
+      document.querySelectorAll('.workflow-step').forEach((stepRow) => {
+        const isActive = Number(stepRow.dataset.index) === activeStep;
+        stepRow.classList.toggle('active', isActive);
+        stepRow.setAttribute('aria-pressed', String(isActive));
+      });
+      if (activeStep >= 0) {
+        highlightStep(item, activeStep);
+      } else {
+        highlightAll(item);
+      }
+    });
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        row.click();
+      }
+    });
     return row;
   }));
 }
 
 draw();
 DATA.groups.forEach((group) => {
-  const title = document.createElement('div');
+  const groupEl = document.createElement('div');
+  groupEl.className = 'workflow-group';
+  const title = document.createElement('button');
+  title.type = 'button';
   title.className = 'workflow-group-title';
-  title.textContent = group.name;
-  list.append(title);
+  title.innerHTML = `<span>${group.name}</span><span class="workflow-group-arrow">▾</span>`;
+  const body = document.createElement('div');
+  body.className = 'workflow-group-body';
+  title.addEventListener('click', () => groupEl.classList.toggle('collapsed'));
+  groupEl.append(title, body);
   group.items.forEach((item) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'workflow-command';
     button.dataset.id = item.id;
-    button.textContent = item.label;
+    button.innerHTML = `<span>${item.label}</span><small>${item.syntax}</small>`;
     button.addEventListener('click', () => render(item));
-    list.append(button);
+    body.append(button);
   });
+  list.append(groupEl);
 });
 render(DATA.groups[1].items[0]);
 </script>

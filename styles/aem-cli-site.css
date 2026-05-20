@@ -303,6 +303,22 @@ main .default-content-wrapper > ul h3 {
   background: #161b22;
 }
 
+.workflow-side::-webkit-scrollbar,
+.workflow-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.workflow-side::-webkit-scrollbar-track,
+.workflow-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workflow-side::-webkit-scrollbar-thumb,
+.workflow-detail::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: #30363d;
+}
+
 .workflow-side-header {
   border-bottom: 1px solid #30363d;
   padding: 16px;
@@ -315,18 +331,49 @@ main .default-content-wrapper > ul h3 {
   line-height: 1.2;
 }
 
+.workflow-group {
+  border-bottom: 1px solid #21262d;
+}
+
 .workflow-group-title {
-  padding: 10px 16px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  padding: 8px 16px;
+  background: transparent;
   color: #8b949e;
   font-family: var(--mono-font-family);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
+  text-align: left;
   text-transform: uppercase;
+  cursor: pointer;
+}
+
+.workflow-group-title:hover {
+  background: #1c2128;
+  color: #c9d1d9;
+}
+
+.workflow-group-arrow {
+  transition: transform 0.15s;
+}
+
+.workflow-group.collapsed .workflow-group-arrow {
+  transform: rotate(-90deg);
+}
+
+.workflow-group.collapsed .workflow-group-body {
+  display: none;
 }
 
 .workflow-command {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   width: 100%;
   border: 0;
   border-left: 3px solid transparent;
@@ -339,6 +386,14 @@ main .default-content-wrapper > ul h3 {
   cursor: pointer;
 }
 
+.workflow-command small {
+  overflow: hidden;
+  color: #6e7681;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow-command:hover {
   background: #1c2128;
   color: #fff;
@@ -348,6 +403,10 @@ main .default-content-wrapper > ul h3 {
   border-left-color: #58a6ff;
   background: #1c2840;
   color: #58a6ff;
+}
+
+.workflow-command.active small {
+  color: #8b949e;
 }
 
 .workflow-main {
@@ -377,6 +436,14 @@ main .default-content-wrapper > ul h3 {
   white-space: nowrap;
 }
 
+.workflow-prompt {
+  color: #fbbf24;
+}
+
+.workflow-muted {
+  color: #8b949e;
+}
+
 .workflow-legend {
   display: flex;
   flex-wrap: wrap;
@@ -404,6 +471,10 @@ main .default-content-wrapper > ul h3 {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.nd {
+  cursor: pointer;
 }
 
 .nd rect,
@@ -517,8 +588,26 @@ main .default-content-wrapper > ul h3 {
   color: #8b949e;
   font-family: var(--mono-font-family);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.workflow-step-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+  color: #8b949e;
+  font-family: var(--mono-font-family);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workflow-step-title span:last-child {
+  color: #484f58;
+  font-weight: 400;
+  text-transform: none;
 }
 
 .workflow-step {
@@ -527,11 +616,17 @@ main .default-content-wrapper > ul h3 {
   border-radius: 6px;
   padding: 7px;
   cursor: pointer;
+  transition: background 0.12s;
 }
 
 .workflow-step:hover,
 .workflow-step.active {
   background: #1c2840;
+}
+
+.workflow-step:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: -2px;
 }
 
 .workflow-step-number {
@@ -551,6 +646,10 @@ main .default-content-wrapper > ul h3 {
 .workflow-step.active .workflow-step-number {
   background: #1f4e79;
   color: #58a6ff;
+}
+
+.workflow-step-body {
+  min-width: 0;
 }
 
 .workflow-step-code {
