@@ -24,8 +24,8 @@
   position: relative;
   display: grid;
   align-content: end;
-  min-height: calc(100svh - var(--nav-height));
-  padding: 60px 24px;
+  min-height: 100svh;
+  padding: calc(var(--nav-height) + 52px) 24px 60px;
   overflow: hidden;
   background:
     linear-gradient(115deg, rgb(250 189 47 / 14%), transparent 42%),
@@ -91,7 +91,7 @@
   color: var(--c-management);
   font-family: var(--mono-font-family);
   font-size: var(--body-font-size-s);
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
   text-shadow: 0 0 22px rgb(254 128 25 / 55%);
 }
@@ -117,7 +117,7 @@
   font-family: var(--mono-font-family);
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-decoration: none;
 }
 

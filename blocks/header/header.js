@@ -4,6 +4,23 @@ import { loadFragment } from '../fragment/fragment.js';
 // media query match that indicates mobile/tablet width
 const isDesktop = window.matchMedia('(min-width: 900px)');
 
+const FALLBACK_NAV = `
+  <div class="nav-brand"><p><a href="/">AEM CLI</a></p></div>
+  <div class="nav-sections">
+    <div class="default-content-wrapper">
+      <ul>
+        <li><a href="/getting-started">Getting Started</a></li>
+        <li><a href="/commands">Commands</a></li>
+        <li><a href="/content">Content</a></li>
+        <li><a href="/preview-publish">Preview + Publish</a></li>
+        <li><a href="/routes">Routes</a></li>
+        <li><a href="/index-code">Index + Code</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="nav-tools"><p><a href="/tools/workflow-explorer.html">Workflow Explorer</a></p></div>
+`;
+
 function closeOnEscape(e) {
   if (e.code === 'Escape') {
     const nav = document.getElementById('nav');
@@ -122,7 +139,11 @@ export default async function decorate(block) {
   block.textContent = '';
   const nav = document.createElement('nav');
   nav.id = 'nav';
-  while (fragment.firstElementChild) nav.append(fragment.firstElementChild);
+  if (fragment?.textContent.trim() || fragment?.querySelector('a')) {
+    while (fragment.firstElementChild) nav.append(fragment.firstElementChild);
+  } else {
+    nav.innerHTML = FALLBACK_NAV;
+  }
 
   const classes = ['brand', 'sections', 'tools'];
   classes.forEach((c, i) => {
@@ -131,7 +152,7 @@ export default async function decorate(block) {
   });
 
   const navBrand = nav.querySelector('.nav-brand');
-  const brandLink = navBrand.querySelector('.button');
+  const brandLink = navBrand?.querySelector('.button');
   if (brandLink) {
     brandLink.className = '';
     brandLink.closest('.button-container').className = '';

@@ -1,6 +1,16 @@
 /* header and nav layout */
+header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: var(--nav-height);
+}
+
 header .nav-wrapper {
-  background-color: var(--background-color);
+  border-bottom: 1px solid rgb(251 248 239 / 14%);
+  background: rgb(13 17 23 / 82%);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(16px);
   width: 100%;
   z-index: 2;
   position: fixed;
@@ -18,6 +28,7 @@ header nav {
   max-width: 1248px;
   height: var(--nav-height);
   padding: 0 24px;
+  color: #fbf8ef;
   font-family: var(--body-font-family);
 }
 
@@ -72,7 +83,7 @@ header nav .nav-hamburger button {
   border: 0;
   border-radius: 0;
   padding: 0;
-  background-color: var(--background-color);
+  background: transparent;
   color: inherit;
   overflow: initial;
   text-overflow: initial;
@@ -153,6 +164,19 @@ header nav .nav-brand img {
   height: auto;
 }
 
+header .nav-brand a:any-link {
+  color: var(--accent-color);
+  font-family: var(--mono-font-family);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+header .nav-brand a::before {
+  content: "$ ";
+  color: #8ec07c;
+}
+
 /* sections */
 header nav .nav-sections {
   grid-area: sections;
@@ -224,7 +248,7 @@ header nav .nav-sections ul > li > ul > li {
 
   header nav .nav-sections ul {
     display: flex;
-    gap: 24px;
+    gap: 18px;
     margin: 0;
   }
 
@@ -269,4 +293,35 @@ header nav .nav-sections ul > li > ul > li {
 /* tools */
 header nav .nav-tools {
   grid-area: tools;
+}
+
+header nav .nav-sections a:any-link,
+header nav .nav-tools a:any-link {
+  color: rgb(251 248 239 / 78%);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+header nav .nav-sections a:hover,
+header nav .nav-tools a:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+header nav .nav-tools a:any-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid rgb(250 189 47 / 42%);
+  border-radius: 4px;
+  padding: 0 12px;
+  color: var(--accent-color);
+  font-family: var(--mono-font-family);
+  font-size: 13px;
+}
+
+header nav .nav-tools a:hover {
+  border-color: var(--accent-color);
+  background: rgb(250 189 47 / 12%);
+  color: #ffd76a;
 }
