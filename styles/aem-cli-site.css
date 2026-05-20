@@ -1,4 +1,4 @@
-body.aem-cli-site {
+:root {
   --site-ink: #181818;
   --site-muted: #5d626b;
   --site-panel: #fbfaf7;
@@ -8,7 +8,9 @@ body.aem-cli-site {
   --site-green: #1d6f50;
   --site-amber: #c88719;
   --site-charcoal: #24211d;
+}
 
+body.aem-cli-site {
   display: block;
   background: #f6f3ec;
   color: var(--site-ink);
