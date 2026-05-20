@@ -16,7 +16,8 @@
     <a href="/">AEM CLI Docs</a>
     <span>/</span>
     <strong>Workflow Explorer</strong>
-    <span>32 command surfaces · content-bus + code-bus command map</span>
+    <span id="workflow-breadcrumb">32 command surfaces · content-bus + code-bus command map</span>
+    <button class="workflow-share" id="workflow-share" type="button">copy link</button>
   </nav>
   <div class="workflow-shell">
     <aside class="workflow-side">
@@ -275,10 +276,15 @@ const edgeLayer = document.getElementById('edges-layer');
 const list = document.getElementById('workflow-list');
 const active = document.getElementById('active-label');
 const steps = document.getElementById('workflow-steps');
+const breadcrumb = document.getElementById('workflow-breadcrumb');
+const shareButton = document.getElementById('workflow-share');
 const nodeMap = Object.fromEntries(DATA.nodes.map((node) => [node.id, node]));
 const edgeMap = Object.fromEntries(DATA.edges.map((edge) => [edge.id, edge]));
+const commandMap = Object.fromEntries(allCommands().map((item) => [item.id, item]));
+const groupByCommand = Object.fromEntries(DATA.groups.flatMap((group) => group.items.map((item) => [item.id, group.name])));
 let currentItem;
 let activeStep = -1;
+let suppressHashUpdate = false;
 
 function center(node, bottom = false) {
   return [node.x + node.w / 2, node.y + (bottom ? node.h : 0)];
@@ -333,6 +339,39 @@ function draw() {
 
 function allCommands() {
   return DATA.groups.flatMap((group) => group.items);
+}
+
+function readHashState() {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return {
+    command: params.get('command') || params.get('scenario'),
+    step: Number.parseInt(params.get('step') || '', 10),
+  };
+}
+
+function commandUrl(item = currentItem, step = activeStep) {
+  const params = new URLSearchParams();
+  if (item) params.set('command', item.id);
+  if (Number.isInteger(step) && step >= 0) params.set('step', String(step + 1));
+  const url = new URL(window.location.href);
+  url.hash = params.toString();
+  return url.toString();
+}
+
+function updateHash(item = currentItem, step = activeStep) {
+  if (suppressHashUpdate || !item) return;
+  window.history.replaceState(null, '', commandUrl(item, step));
+}
+
+function updateBreadcrumb(item = currentItem, step = activeStep) {
+  if (!item) {
+    breadcrumb.textContent = '32 command surfaces · content-bus + code-bus command map';
+    return;
+  }
+  const group = groupByCommand[item.id] || 'commands';
+  const parts = ['32 command surfaces', group, item.label];
+  if (Number.isInteger(step) && step >= 0) parts.push(`step ${step + 1}`);
+  breadcrumb.textContent = parts.join(' / ');
 }
 
 function normalizeStep(item, step, index) {
@@ -467,14 +506,36 @@ function showNode(nodeId) {
   document.querySelectorAll('.workflow-step').forEach((row) => row.classList.remove('active'));
 }
 
-function render(item) {
+function setActiveStep(item, index) {
+  activeStep = activeStep === index ? -1 : index;
+  document.querySelectorAll('.workflow-step').forEach((stepRow) => {
+    const isActive = Number(stepRow.dataset.index) === activeStep;
+    stepRow.classList.toggle('active', isActive);
+    stepRow.setAttribute('aria-pressed', String(isActive));
+  });
+  if (activeStep >= 0) {
+    highlightStep(item, activeStep);
+  } else {
+    highlightAll(item);
+  }
+  updateBreadcrumb(item, activeStep);
+  updateHash(item, activeStep);
+}
+
+function render(item, options = {}) {
   currentItem = item;
-  activeStep = -1;
+  activeStep = Number.isInteger(options.step) ? options.step : -1;
   active.innerHTML = `<span class="workflow-prompt">$</span> ${item.syntax}<span class="workflow-muted"> — ${item.label}</span>`;
   document.querySelectorAll('.workflow-command').forEach((button) => {
     button.classList.toggle('active', button.dataset.id === item.id);
   });
-  highlightAll(item);
+  if (activeStep >= 0) {
+    highlightStep(item, activeStep);
+  } else {
+    highlightAll(item);
+  }
+  updateBreadcrumb(item, activeStep);
+  updateHash(item, activeStep);
 
   const title = document.createElement('div');
   title.className = 'workflow-step-title';
@@ -485,7 +546,8 @@ function render(item) {
     row.dataset.index = index;
     row.tabIndex = 0;
     row.setAttribute('role', 'button');
-    row.setAttribute('aria-pressed', 'false');
+    row.setAttribute('aria-pressed', String(index === activeStep));
+    row.classList.toggle('active', index === activeStep);
     row.innerHTML = `<div class="workflow-step-number">${index + 1}</div><div class="workflow-step-body"><div class="workflow-step-code">${step.code}</div><div class="workflow-step-text">${step.text}</div></div>`;
     row.addEventListener('mouseenter', () => {
       if (activeStep < 0) highlightStep(item, index);
@@ -494,17 +556,7 @@ function render(item) {
       if (activeStep < 0) highlightAll(item);
     });
     row.addEventListener('click', () => {
-      activeStep = activeStep === index ? -1 : index;
-      document.querySelectorAll('.workflow-step').forEach((stepRow) => {
-        const isActive = Number(stepRow.dataset.index) === activeStep;
-        stepRow.classList.toggle('active', isActive);
-        stepRow.setAttribute('aria-pressed', String(isActive));
-      });
-      if (activeStep >= 0) {
-        highlightStep(item, activeStep);
-      } else {
-        highlightAll(item);
-      }
+      setActiveStep(item, index);
     });
     row.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -514,6 +566,15 @@ function render(item) {
     });
     return row;
   }));
+}
+
+function renderFromHash() {
+  const { command, step } = readHashState();
+  const item = commandMap[command] || DATA.groups[1].items[0];
+  const stepIndex = Number.isInteger(step) && step > 0 && step <= item.steps.length ? step - 1 : -1;
+  suppressHashUpdate = true;
+  render(item, { step: stepIndex });
+  suppressHashUpdate = false;
 }
 
 draw();
@@ -539,7 +600,19 @@ DATA.groups.forEach((group) => {
   });
   list.append(groupEl);
 });
-render(DATA.groups[1].items[0]);
+shareButton.addEventListener('click', async () => {
+  const url = commandUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    shareButton.textContent = 'copied';
+  } catch {
+    window.prompt('Copy workflow link', url);
+    shareButton.textContent = 'ready';
+  }
+  window.setTimeout(() => { shareButton.textContent = 'copy link'; }, 1400);
+});
+window.addEventListener('hashchange', renderFromHash);
+renderFromHash();
 </script>
 </body>
 </html>

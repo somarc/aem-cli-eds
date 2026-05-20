@@ -280,15 +280,43 @@ main .default-content-wrapper > ul h3 {
 
 .workflow-topbar a,
 .workflow-topbar span {
+  overflow: hidden;
   color: #8b949e;
   font-family: var(--mono-font-family);
   font-size: 12px;
   text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-topbar strong {
+  flex-shrink: 0;
   color: #e6edf3;
   font-size: 13px;
+}
+
+#workflow-breadcrumb {
+  min-width: 0;
+  flex: 1;
+}
+
+.workflow-share {
+  flex-shrink: 0;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  padding: 5px 10px;
+  background: #0d1117;
+  color: #8b949e;
+  font-family: var(--mono-font-family);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.workflow-share:hover,
+.workflow-share:focus-visible {
+  border-color: #58a6ff;
+  color: #e6edf3;
+  outline: none;
 }
 
 .workflow-shell {
