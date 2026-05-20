@@ -16,13 +16,13 @@
     <a href="/">AEM CLI Docs</a>
     <span>/</span>
     <strong>Workflow Explorer</strong>
-    <span>content-bus + code-bus command map</span>
+    <span>32 command surfaces · content-bus + code-bus command map</span>
   </nav>
   <div class="workflow-shell">
     <aside class="workflow-side">
       <div class="workflow-side-header">
         <h1>AEM CLI Commands</h1>
-        <p>Trace a command from shell input to DA, Helix, Git, and local state.</p>
+        <p>Trace all 32 registered command surfaces from shell input to DA, Helix, Git, browser tooling, and local state.</p>
       </div>
       <div id="workflow-list"></div>
     </aside>
@@ -72,6 +72,9 @@ const DATA = {
     { id: 'helix', x: 282, y: 382, w: 210, h: 58, type: 'ext', label: 'admin.hlx.page', sub: 'preview · live · status · code' },
     { id: 'git', x: 526, y: 382, w: 150, h: 58, type: 'file', label: 'Git repo', sub: 'blocks · styles · tools' },
     { id: 'token', x: 708, y: 382, w: 160, h: 58, type: 'file', label: '.hlx token', sub: '.da-token.json' },
+    { id: 'server', x: 58, y: 472, w: 182, h: 48, type: 'client', label: 'local dev server', sub: 'up · import · live reload' },
+    { id: 'browser', x: 282, y: 472, w: 182, h: 48, type: 'ext', label: 'browser tooling', sub: 'open · sidekick · importer UI' },
+    { id: 'cache', x: 526, y: 472, w: 150, h: 48, type: 'file', label: 'local cache', sub: 'content/ · .aem cache' },
   ],
   edges: [
     { id: 'e-cli-shared', from: 'cli', to: 'shared', label: 'flags/env', color: 'core' },
@@ -85,6 +88,11 @@ const DATA = {
     { id: 'e-client-helix', from: 'client', to: 'helix', label: 'preview/live', color: 'ext' },
     { id: 'e-content-git', from: 'content', to: 'git', label: 'workspace', color: 'file' },
     { id: 'e-delivery-output', from: 'delivery', to: 'output', label: 'URL/status', color: 'lib' },
+    { id: 'e-cli-server', from: 'cli', to: 'server', label: 'dev server', color: 'core' },
+    { id: 'e-server-browser', from: 'server', to: 'browser', label: 'open/reload', color: 'ext' },
+    { id: 'e-server-cache', from: 'server', to: 'cache', label: 'cache', color: 'file' },
+    { id: 'e-content-cache', from: 'content', to: 'cache', label: 'content/', color: 'file' },
+    { id: 'e-code-browser', from: 'delivery', to: 'browser', label: 'sidekick', color: 'ext' },
   ],
   groups: [
     { name: 'authoring', items: [
@@ -93,6 +101,23 @@ const DATA = {
         ['da-auth.js', 'If no valid cache exists, the IMS browser flow stores a project-local DA token.'],
         ['.hlx/.da-token.json', 'The token is ignored from git and reused by content and delivery commands.'],
       ] },
+      { id: 'auth-logout', label: 'aem auth logout', syntax: 'aem auth logout', edges: ['e-cli-auth', 'e-auth-token'], nodes: ['cli', 'auth', 'token'], steps: [
+        ['da/auth.js', 'Dispatches the logout subcommand without needing network access.'],
+        ['tokenPath()', 'Finds the project-local DA token cache from the current working directory.'],
+        ['fs-extra.remove', 'Deletes the cached token and reports whether one existed.'],
+      ] },
+      { id: 'auth-status', label: 'aem auth status', syntax: 'aem auth status', edges: ['e-cli-auth', 'e-auth-token', 'e-delivery-output'], nodes: ['cli', 'auth', 'token', 'output'], steps: [
+        ['readToken()', 'Loads the cached token payload if present.'],
+        ['expires_at check', 'Marks the token invalid when missing or expired.'],
+        ['stdout + exitCode', 'Prints validity and sets a non-zero exit for automation on invalid state.'],
+      ] },
+      { id: 'auth-token', label: 'aem auth token', syntax: 'aem auth token', edges: ['e-cli-auth', 'e-auth-token', 'e-delivery-output'], nodes: ['cli', 'auth', 'token', 'output'], steps: [
+        ['readToken()', 'Reads the cached access token from the local DA token file.'],
+        ['guard missing token', 'Throws an actionable error when login has not happened yet.'],
+        ['stdout', 'Writes only the raw token for scripts that need to pass it forward.'],
+      ] },
+    ] },
+    { name: 'content workspace', items: [
       { id: 'content-seed', label: 'aem content seed', syntax: 'aem content seed ./seed --commit', edges: ['e-cli-content', 'e-content-client', 'e-client-da'], nodes: ['cli', 'content', 'client', 'da'], steps: [
         ['content/seed.cmd.js', 'Walks local authored HTML, nav, footer, JSON, SVG, and text source files.'],
         ['DaClient.putSource', 'Uploads each document into DA source storage, preserving authored paths.'],
@@ -103,17 +128,67 @@ const DATA = {
         ['DaClient.listAll', 'Follows DA continuation tokens and recursively discovers folders.'],
         ['local workspace', 'Creates a reviewable local snapshot before commit/push flows.'],
       ] },
+      { id: 'content-add', label: 'aem content add', syntax: 'aem content add content/index.html', edges: ['e-cli-content', 'e-content-cache'], nodes: ['cli', 'content', 'cache'], steps: [
+        ['content/add.js', 'Accepts one or more paths under content/ or defaults to all changes.'],
+        ['AddCommand', 'Normalizes content paths and stages them in the local content workspace.'],
+        ['content metadata', 'Prepares later commit/push operations without mutating DA.'],
+      ] },
+      { id: 'content-commit', label: 'aem content commit', syntax: 'aem content commit -m "update home"', edges: ['e-cli-content', 'e-content-cache'], nodes: ['cli', 'content', 'cache'], steps: [
+        ['content/commit.js', 'Requires a commit message through -m or --message.'],
+        ['CommitCommand', 'Snapshots staged content changes locally.'],
+        ['content/ log', 'Creates the review boundary used by push and diff flows.'],
+      ] },
+      { id: 'content-push', label: 'aem content push', syntax: 'aem content push --path /index.html', edges: ['e-cli-content', 'e-content-cache', 'e-content-client', 'e-client-da'], nodes: ['cli', 'content', 'cache', 'client', 'da'], steps: [
+        ['content/push.js', 'Filters committed local changes by path, force, token, and dry-run flags.'],
+        ['PushCommand', 'Checks conflicts unless --force is set.'],
+        ['DaClient.putSource/deleteSource', 'Applies committed local content changes to DA source storage.'],
+      ] },
+      { id: 'content-status', label: 'aem content status', syntax: 'aem content status', edges: ['e-cli-content', 'e-content-cache', 'e-delivery-output'], nodes: ['cli', 'content', 'cache', 'output'], steps: [
+        ['content/status.js', 'Loads local content workspace state.'],
+        ['StatusCommand', 'Classifies added, modified, and deleted files.'],
+        ['stdout', 'Reports pending changes without touching DA.'],
+      ] },
+      { id: 'content-diff', label: 'aem content diff', syntax: 'aem content diff /index.html', edges: ['e-cli-content', 'e-content-cache', 'e-content-client', 'e-client-da', 'e-delivery-output'], nodes: ['cli', 'content', 'cache', 'client', 'da', 'output'], steps: [
+        ['content/diff.js', 'Targets a single path or all modified local files.'],
+        ['DiffCommand', 'Fetches remote DA source and compares it to local content/.'],
+        ['stdout', 'Prints reviewable differences before push or merge.'],
+      ] },
+      { id: 'content-merge', label: 'aem content merge', syntax: 'aem content merge /index.html', edges: ['e-cli-content', 'e-content-cache', 'e-content-client', 'e-client-da'], nodes: ['cli', 'content', 'cache', 'client', 'da'], steps: [
+        ['content/merge.js', 'Targets a single file or all modified files.'],
+        ['MergeCommand', 'Reads remote DA source and local workspace versions.'],
+        ['content/', 'Applies remote updates locally for conflict resolution.'],
+      ] },
     ] },
     { name: 'delivery', items: [
+      { id: 'preview-page', label: 'aem preview page', syntax: 'aem preview page /index', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['previewOne()', 'Flushes DA preview for the selected source path when possible.'],
+        ['HelixAdminClient.preview', 'Builds a single page on aem.page.'],
+        ['stdout', 'Prints the preview URL for direct browser or CI handoff.'],
+      ] },
       { id: 'preview-tree', label: 'aem preview tree', syntax: 'aem preview tree /', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
         ['resolvePathSet', 'Reads DA source paths and filters to HTML documents under the prefix.'],
         ['flushDaPreview', 'Flushes DA preview state so Helix sees current authored source.'],
         ['HelixAdminClient.preview', 'Builds each page on aem.page and prints structured results.'],
       ] },
+      { id: 'preview-status', label: 'aem preview status', syntax: 'aem preview status /index', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
+        ['createDaContext', 'Resolves owner, repo, branch, and token context.'],
+        ['HelixAdminClient.previewStatus', 'Reads preview build metadata for one path.'],
+        ['printResult', 'Returns structured JSON/table-friendly status.'],
+      ] },
       { id: 'publish-page', label: 'aem publish page', syntax: 'aem publish page /index --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
         ['guardCommit', 'Publish is dry-run unless the operator passes --commit explicitly.'],
         ['HelixAdminClient.live', 'Promotes the selected path from preview to live delivery.'],
         ['stdout', 'Prints the live URL for automation and release notes.'],
+      ] },
+      { id: 'publish-tree', label: 'aem publish tree', syntax: 'aem publish tree / --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['resolvePathSet', 'Finds all HTML source documents under the DA prefix.'],
+        ['guardCommit', 'Requires explicit --commit after reporting target and path count.'],
+        ['runConcurrent', 'Publishes pages with bounded concurrency and structured per-path results.'],
+      ] },
+      { id: 'publish-unpublish', label: 'aem publish unpublish', syntax: 'aem publish unpublish /index --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix'], nodes: ['cli', 'delivery', 'client', 'helix'], steps: [
+        ['createProjectContext', 'Reports the target owner, repo, and branch before mutation.'],
+        ['guardCommit', 'Blocks live removal unless --commit is supplied.'],
+        ['HelixAdminClient.unpublish', 'Removes the selected page from live delivery.'],
       ] },
       { id: 'deploy-page', label: 'aem deploy page', syntax: 'aem deploy page /index --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix'], nodes: ['cli', 'delivery', 'client', 'da', 'helix'], steps: [
         ['preview first', 'Always flushes DA and runs preview so the live step has a current build.'],
@@ -127,15 +202,69 @@ const DATA = {
         ['Helix status', 'Reads preview/live sourceLocation to determine delivery ownership.'],
         ['exit codes', 'Returns contentbus, codebus, hybrid, orphan, or probe-failed for scripts.'],
       ] },
+      { id: 'route-canonical', label: 'aem route canonical', syntax: 'aem route canonical /index', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['classifyRoute', 'Runs the same ownership probe used by route classify.'],
+        ['canonicalWebPath', 'Normalizes DA source paths to routable web paths.'],
+        ['printResult', 'Returns preview, live, plain.html, ownership, and source metadata.'],
+      ] },
+      { id: 'route-audit', label: 'aem route audit', syntax: 'aem route audit / --concurrency 10', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['resolvePathSet', 'Discovers all HTML source documents under the prefix.'],
+        ['runConcurrent', 'Classifies routes in parallel with bounded concurrency.'],
+        ['printResult', 'Outputs ownership results for site-wide audits.'],
+      ] },
+      { id: 'index-show', label: 'aem index show', syntax: 'aem index show', edges: ['e-cli-delivery', 'e-delivery-output', 'e-content-git'], nodes: ['cli', 'delivery', 'git', 'output'], steps: [
+        ['IndexConfig', 'Loads helix-query.yaml from the project checkout or --file location.'],
+        ['indexRows', 'Extracts index names, targets, fields, and include rules.'],
+        ['printResult', 'Prints the configured index catalog.'],
+      ] },
       { id: 'index-validate', label: 'aem index validate', syntax: 'aem index validate --env preview', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
         ['helix-query.yaml', 'Loads configured index fields from the project checkout.'],
         ['query-index.json', 'Fetches preview or live query output and compares available columns.'],
         ['non-zero on drift', 'Reports missing fields so CI or agents can block bad releases.'],
       ] },
+      { id: 'index-query', label: 'aem index query', syntax: 'aem index query pages --filter title=Home', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
+        ['IndexConfig', 'Finds the named configured index and target path.'],
+        ['fetchJson', 'Reads preview or live query JSON with limit and offset.'],
+        ['client filter', 'Applies repeatable key=value filters before printing rows.'],
+      ] },
+    ] },
+    { name: 'code bus', items: [
       { id: 'code-sync', label: 'aem code sync', syntax: 'aem code sync /styles/aem-cli-site.css --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-content-git'], nodes: ['cli', 'delivery', 'client', 'helix', 'git'], steps: [
         ['Git code surface', 'Targets CSS, JS, blocks, and tools rather than authored page documents.'],
         ['commit gate', 'Code-bus mutation requires explicit --commit.'],
         ['Helix code API', 'Triggers code sync or returns job/status details for follow-up.'],
+      ] },
+      { id: 'code-status', label: 'aem code status', syntax: 'aem code status /styles/aem-cli-site.css', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-content-git', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'git', 'output'], steps: [
+        ['code/status options', 'Accepts owner, repo, branch, token, and optional code-bus path.'],
+        ['HelixAdminClient.codeStatus', 'Checks sync state for the requested code path.'],
+        ['printResult', 'Returns code-bus status without mutating remote state.'],
+      ] },
+      { id: 'code-job', label: 'aem code job', syntax: 'aem code job job-2026-...', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
+        ['job <jobId>', 'Accepts a Helix Admin async job identifier.'],
+        ['HelixAdminClient.job', 'Fetches job state, progress, resources, and errors.'],
+        ['printResult', 'Prints the job payload for follow-up diagnostics.'],
+      ] },
+      { id: 'code-sidekick-get', label: 'aem code sidekick get', syntax: 'aem code sidekick get', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-code-browser', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'browser', 'output'], steps: [
+        ['nested sidekick command', 'Routes through code sidekick get after project options are resolved.'],
+        ['HelixAdminClient.sidekickConfig', 'Reads the sidekick configuration for owner, repo, and branch.'],
+        ['printResult', 'Returns JSON that browser tooling and agents can inspect.'],
+      ] },
+    ] },
+    { name: 'dev server', items: [
+      { id: 'up', label: 'aem up', syntax: 'aem up --port 3000 --livereload', edges: ['e-cli-server', 'e-server-browser', 'e-server-cache', 'e-content-git'], nodes: ['cli', 'server', 'browser', 'cache', 'git'], steps: [
+        ['src/up.js', 'Starts the local Edge Delivery development server with proxy, TLS, cache, and HTML-folder options.'],
+        ['local dev server', 'Serves project files, proxies origin content, and can forward browser console logs.'],
+        ['browser + reload', 'Opens the requested path and reloads when watched sources change.'],
+      ] },
+      { id: 'import', label: 'aem import', syntax: 'aem import --port 3001', edges: ['e-cli-server', 'e-server-browser', 'e-server-cache'], nodes: ['cli', 'server', 'browser', 'cache'], steps: [
+        ['src/import.js', 'Starts the importer server and optionally installs the importer UI.'],
+        ['proxy/cache', 'Uses headers, cache, TLS, and insecure-request options for migration work.'],
+        ['browser tooling', 'Opens the importer experience against the local server.'],
+      ] },
+      { id: 'hack', label: 'aem hack', syntax: 'aem hack --event <name>', edges: ['e-cli-server', 'e-server-browser'], nodes: ['cli', 'server', 'browser'], steps: [
+        ['src/hack.js', 'Registers the hackathon helper command from the inherited AEM CLI surface.'],
+        ['event option', 'Uses the selected event profile to bootstrap the experience.'],
+        ['browser', 'Opens the local helper UI when requested.'],
       ] },
     ] },
   ],
