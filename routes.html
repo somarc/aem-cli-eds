@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Route Ownership - AEM CLI</title><link rel="stylesheet" href="/styles/fonts.css"><link rel="stylesheet" href="/styles/styles.css"><link rel="stylesheet" href="/styles/aem-cli-site.css"></head>
+<body class="aem-cli-site"><div class="site-shell"><nav class="site-nav"><a class="site-brand" href="/">AEM CLI</a><div class="site-nav-links"><a href="/commands.html">Commands</a><a href="/preview-publish.html">Preview</a><a href="/workflow-explorer.html">Explorer</a></div></nav>
+<main class="site-main"><section class="site-hero"><div class="site-hero-inner"><p class="eyebrow">Routes</p><h1>Know whether a URL is DA-owned, code-owned, hybrid, or orphaned.</h1><p>Route classification is the safety layer before cleanup, migration, or publish decisions.</p></div></section>
+<section class="site-section"><table class="matrix"><thead><tr><th>Class</th><th>Meaning</th><th>Action</th></tr></thead><tbody><tr><th>contentbus</th><td>DA source or DA delivery source is present.</td><td>DA preview and publish workflows apply.</td></tr><tr><th>codebus</th><td>The route is backed by code repository content.</td><td>Use code-bus inspection before assuming DA changes matter.</td></tr><tr><th>hybrid</th><td>Both DA and code evidence exists.</td><td>Review ownership before mutation.</td></tr><tr><th>orphan</th><td>No source was found by probes.</td><td>Check canonical path and source document extension.</td></tr></tbody></table></section>
+<section class="site-section compact"><pre class="terminal">aem route classify /blog/post
+aem route canonical /index.html
+aem route audit /docs --concurrency 10</pre></section>
+</main><footer class="site-footer"><div class="site-footer-inner"><span>AEM CLI EDS</span><a href="/preview-publish.html">Preview and publish</a></div></footer></div></body></html>

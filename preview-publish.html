@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Preview and Publish - AEM CLI</title><link rel="stylesheet" href="/styles/fonts.css"><link rel="stylesheet" href="/styles/styles.css"><link rel="stylesheet" href="/styles/aem-cli-site.css"></head>
+<body class="aem-cli-site"><div class="site-shell"><nav class="site-nav"><a class="site-brand" href="/">AEM CLI</a><div class="site-nav-links"><a href="/commands.html">Commands</a><a href="/routes.html">Routes</a><a href="/workflow-explorer.html">Explorer</a></div></nav>
+<main class="site-main"><section class="site-hero"><div class="site-hero-inner"><p class="eyebrow">Delivery</p><h1>Preview is fast. Publish is explicit.</h1><p>The port keeps preview convenient and makes live mutations deliberate with <code>--commit</code>.</p></div></section>
+<section class="site-section"><h2>Flow</h2><div class="grid three"><article class="card"><h3>1. Flush DA preview</h3><p><code>aem preview</code> starts by clearing the DA editor preview cache when possible.</p></article><article class="card"><h3>2. Trigger Helix build</h3><p>The command calls Helix Admin preview for the selected path, tree, or status target.</p></article><article class="card"><h3>3. Promote live</h3><p><code>aem publish</code> and the publish step of <code>aem deploy</code> require <code>--commit</code>.</p></article></div></section>
+<section class="site-section compact"><pre class="terminal"><span class="dim">$</span> aem preview tree /docs
+<span class="dim">$</span> aem publish tree /docs --commit
+<span class="dim">$</span> aem deploy page /index --commit</pre></section>
+</main><footer class="site-footer"><div class="site-footer-inner"><span>AEM CLI EDS</span><a href="/workflow-explorer.html">Workflow Explorer</a></div></footer></div></body></html>
