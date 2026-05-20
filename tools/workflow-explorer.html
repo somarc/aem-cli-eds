@@ -3,122 +3,244 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Workflow Explorer - AEM CLI</title>
-<link rel="stylesheet" href="/styles/fonts.css">
+<title>AEM CLI Workflow Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles/styles.css">
 <link rel="stylesheet" href="/styles/aem-cli-site.css">
 </head>
-<body class="aem-cli-site">
+<body>
 <div class="workflow-app">
-  <aside class="workflow-side">
-    <a class="site-brand" href="/">AEM CLI</a>
-    <h1>Workflow Explorer</h1>
-    <p>Click a command to trace the operational flow.</p>
-    <div id="workflow-list"></div>
-  </aside>
-  <main class="workflow-main">
-    <p class="eyebrow">Interactive command map</p>
-    <h2 id="workflow-title">aem preview page</h2>
-    <p id="workflow-summary">Preview one DA source document by flushing DA preview and triggering the Helix preview build.</p>
-    <div class="flow-panel" id="workflow-flow"></div>
-    <div class="workflow-detail">
-      <h3>Command contract</h3>
-      <pre class="terminal" id="workflow-command"></pre>
-      <h3>Notes</h3>
-      <ul id="workflow-notes"></ul>
-    </div>
-  </main>
+  <nav class="workflow-topbar">
+    <a href="/">AEM CLI Docs</a>
+    <span>/</span>
+    <strong>Workflow Explorer</strong>
+    <span>content-bus + code-bus command map</span>
+  </nav>
+  <div class="workflow-shell">
+    <aside class="workflow-side">
+      <div class="workflow-side-header">
+        <h1>AEM CLI Commands</h1>
+        <p>Trace a command from shell input to DA, Helix, Git, and local state.</p>
+      </div>
+      <div id="workflow-list"></div>
+    </aside>
+    <main class="workflow-main">
+      <div class="workflow-toolbar">
+        <div class="workflow-active" id="active-label">select a command</div>
+        <div class="workflow-legend">
+          <span style="--dot:#748ffc">core</span>
+          <span style="--dot:#a78bfa">lib</span>
+          <span style="--dot:#22d3ee">client</span>
+          <span style="--dot:#34d399">external</span>
+          <span style="--dot:#fbbf24">files</span>
+        </div>
+      </div>
+      <div class="workflow-canvas">
+        <svg id="diagram" viewBox="0 0 900 540" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#30363d"/></marker>
+            <marker id="arr-core" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#748ffc"/></marker>
+            <marker id="arr-lib" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#a78bfa"/></marker>
+            <marker id="arr-client" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#22d3ee"/></marker>
+            <marker id="arr-ext" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#34d399"/></marker>
+            <marker id="arr-file" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#fbbf24"/></marker>
+          </defs>
+          <g id="edges-layer"></g>
+          <g id="nodes-layer"></g>
+        </svg>
+      </div>
+      <section class="workflow-detail">
+        <h2>Execution Notes</h2>
+        <div id="workflow-steps"></div>
+      </section>
+    </main>
+  </div>
 </div>
 <script>
-const workflows = [
-  {
-    name: 'aem auth login',
-    summary: 'Create or reuse the project-local DA token cache.',
-    command: 'aem auth login',
-    flow: ['CLI args', 'IMS browser flow', '.hlx token cache', 'ready for admin calls'],
-    notes: ['Stores token under .hlx/.da-token.json.', 'Automation can pass --token.'],
-  },
-  {
-    name: 'aem preview page',
-    summary: 'Flush DA preview and trigger the Helix preview pipeline.',
-    command: 'aem preview page /index --owner somarc --repo aem-cli-eds',
-    flow: ['resolve owner/repo', 'load token', 'DA preview flush', 'Helix preview'],
-    notes: ['Safe to run without --commit.', 'Outputs the aem.page URL when available.'],
-  },
-  {
-    name: 'aem publish page',
-    summary: 'Promote one previewed page to live CDN.',
-    command: 'aem publish page /index --commit',
-    flow: ['target preflight', '--commit check', 'Helix live call', 'aem.live URL'],
-    notes: ['Dry-run by default.', 'Live mutation requires --commit.'],
-  },
-  {
-    name: 'aem deploy page',
-    summary: 'Preview a page, then publish it when commit is supplied.',
-    command: 'aem deploy page /index --commit',
-    flow: ['DA flush', 'Helix preview', '--commit check', 'Helix live'],
-    notes: ['Preview always runs.', 'Publish step is commit-gated.'],
-  },
-  {
-    name: 'aem route classify',
-    summary: 'Classify route ownership using DA source and Helix status probes.',
-    command: 'aem route classify /blog/post',
-    flow: ['probe DA source', 'probe Helix status', 'compare sourceLocation', 'return ownership'],
-    notes: ['Exit codes distinguish contentbus, codebus, hybrid, orphan, and probe-failed.'],
-  },
-  {
-    name: 'aem index validate',
-    summary: 'Compare configured helix-query fields against query-index output.',
-    command: 'aem index validate --env preview',
-    flow: ['parse helix-query.yaml', 'build preview/live URL', 'fetch query JSON', 'report missing fields'],
-    notes: ['Uses Adobe shared index config parsing.', 'Read-only validation.'],
-  },
-  {
-    name: 'aem code sync',
-    summary: 'Trigger code-bus sync for a path after commit confirmation.',
-    command: 'aem code sync /styles/styles.css --commit',
-    flow: ['target preflight', '--commit check', 'Helix code call', 'job or status response'],
-    notes: ['Mutation is commit-gated.', 'Use code status first when troubleshooting.'],
-  },
-];
+const DATA = {
+  nodes: [
+    { id: 'cli', x: 315, y: 22, w: 270, h: 54, type: 'core', label: 'src/cli.js', sub: 'yargs · strict env · command registry' },
+    { id: 'shared', x: 50, y: 128, w: 162, h: 52, type: 'lib', label: 'da/shared.js', sub: 'project context · commit guard' },
+    { id: 'auth', x: 236, y: 128, w: 142, h: 52, type: 'lib', label: 'da-auth.js', sub: 'IMS token cache' },
+    { id: 'content', x: 402, y: 128, w: 160, h: 52, type: 'lib', label: 'content/*.cmd', sub: 'clone · seed · push · diff' },
+    { id: 'delivery', x: 586, y: 128, w: 168, h: 52, type: 'lib', label: 'da/*.js', sub: 'preview · publish · route' },
+    { id: 'output', x: 778, y: 128, w: 92, h: 52, type: 'lib', label: 'stdout', sub: 'JSON · URL · tables' },
+    { id: 'client', x: 316, y: 246, w: 244, h: 58, type: 'client', label: 'DaClient + HelixAdminClient', sub: 'authenticated fetch layer' },
+    { id: 'da', x: 58, y: 382, w: 190, h: 58, type: 'ext', label: 'admin.da.live', sub: '/source · /list · preview flush' },
+    { id: 'helix', x: 282, y: 382, w: 210, h: 58, type: 'ext', label: 'admin.hlx.page', sub: 'preview · live · status · code' },
+    { id: 'git', x: 526, y: 382, w: 150, h: 58, type: 'file', label: 'Git repo', sub: 'blocks · styles · tools' },
+    { id: 'token', x: 708, y: 382, w: 160, h: 58, type: 'file', label: '.hlx token', sub: '.da-token.json' },
+  ],
+  edges: [
+    { id: 'e-cli-shared', from: 'cli', to: 'shared', label: 'flags/env', color: 'core' },
+    { id: 'e-cli-auth', from: 'cli', to: 'auth', label: 'token need', color: 'core' },
+    { id: 'e-cli-content', from: 'cli', to: 'content', label: 'subcommand', color: 'core' },
+    { id: 'e-cli-delivery', from: 'cli', to: 'delivery', label: 'subcommand', color: 'core' },
+    { id: 'e-auth-token', from: 'auth', to: 'token', label: 'read/write', color: 'file' },
+    { id: 'e-content-client', from: 'content', to: 'client', label: 'source ops', color: 'client' },
+    { id: 'e-delivery-client', from: 'delivery', to: 'client', label: 'admin ops', color: 'client' },
+    { id: 'e-client-da', from: 'client', to: 'da', label: 'Bearer /source', color: 'ext' },
+    { id: 'e-client-helix', from: 'client', to: 'helix', label: 'preview/live', color: 'ext' },
+    { id: 'e-content-git', from: 'content', to: 'git', label: 'workspace', color: 'file' },
+    { id: 'e-delivery-output', from: 'delivery', to: 'output', label: 'URL/status', color: 'lib' },
+  ],
+  groups: [
+    { name: 'authoring', items: [
+      { id: 'auth-login', label: 'aem auth login', syntax: 'aem auth login', edges: ['e-cli-auth', 'e-auth-token'], nodes: ['cli', 'auth', 'token'], steps: [
+        ['src/cli.js', 'Strict yargs dispatch resolves the auth subcommand and passes log/env options.'],
+        ['da-auth.js', 'If no valid cache exists, the IMS browser flow stores a project-local DA token.'],
+        ['.hlx/.da-token.json', 'The token is ignored from git and reused by content and delivery commands.'],
+      ] },
+      { id: 'content-seed', label: 'aem content seed', syntax: 'aem content seed ./seed --commit', edges: ['e-cli-content', 'e-content-client', 'e-client-da'], nodes: ['cli', 'content', 'client', 'da'], steps: [
+        ['content/seed.cmd.js', 'Walks local authored HTML, nav, footer, JSON, SVG, and text source files.'],
+        ['DaClient.putSource', 'Uploads each document into DA source storage, preserving authored paths.'],
+        ['admin.da.live/source', 'The canonical page record now lives in content-bus, while Git keeps blocks and tools.'],
+      ] },
+      { id: 'content-clone', label: 'aem content clone', syntax: 'aem content clone --path /', edges: ['e-cli-content', 'e-content-client', 'e-client-da', 'e-content-git'], nodes: ['cli', 'content', 'client', 'da', 'git'], steps: [
+        ['content/clone.cmd.js', 'Lists source files from DA and materializes them into a local content workspace.'],
+        ['DaClient.listAll', 'Follows DA continuation tokens and recursively discovers folders.'],
+        ['local workspace', 'Creates a reviewable local snapshot before commit/push flows.'],
+      ] },
+    ] },
+    { name: 'delivery', items: [
+      { id: 'preview-tree', label: 'aem preview tree', syntax: 'aem preview tree /', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['resolvePathSet', 'Reads DA source paths and filters to HTML documents under the prefix.'],
+        ['flushDaPreview', 'Flushes DA preview state so Helix sees current authored source.'],
+        ['HelixAdminClient.preview', 'Builds each page on aem.page and prints structured results.'],
+      ] },
+      { id: 'publish-page', label: 'aem publish page', syntax: 'aem publish page /index --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
+        ['guardCommit', 'Publish is dry-run unless the operator passes --commit explicitly.'],
+        ['HelixAdminClient.live', 'Promotes the selected path from preview to live delivery.'],
+        ['stdout', 'Prints the live URL for automation and release notes.'],
+      ] },
+      { id: 'deploy-page', label: 'aem deploy page', syntax: 'aem deploy page /index --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix'], nodes: ['cli', 'delivery', 'client', 'da', 'helix'], steps: [
+        ['preview first', 'Always flushes DA and runs preview so the live step has a current build.'],
+        ['commit gate', 'Without --commit, deploy stops after preview and reports the preview URL.'],
+        ['live edge', 'With --commit, deploy promotes the same path to aem.live.'],
+      ] },
+    ] },
+    { name: 'diagnostics', items: [
+      { id: 'route-classify', label: 'aem route classify', syntax: 'aem route classify /content', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-da', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'da', 'helix', 'output'], steps: [
+        ['DA probe', 'Checks whether the path exists in content-bus source storage.'],
+        ['Helix status', 'Reads preview/live sourceLocation to determine delivery ownership.'],
+        ['exit codes', 'Returns contentbus, codebus, hybrid, orphan, or probe-failed for scripts.'],
+      ] },
+      { id: 'index-validate', label: 'aem index validate', syntax: 'aem index validate --env preview', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-delivery-output'], nodes: ['cli', 'delivery', 'client', 'helix', 'output'], steps: [
+        ['helix-query.yaml', 'Loads configured index fields from the project checkout.'],
+        ['query-index.json', 'Fetches preview or live query output and compares available columns.'],
+        ['non-zero on drift', 'Reports missing fields so CI or agents can block bad releases.'],
+      ] },
+      { id: 'code-sync', label: 'aem code sync', syntax: 'aem code sync /styles/aem-cli-site.css --commit', edges: ['e-cli-delivery', 'e-delivery-client', 'e-client-helix', 'e-content-git'], nodes: ['cli', 'delivery', 'client', 'helix', 'git'], steps: [
+        ['Git code surface', 'Targets CSS, JS, blocks, and tools rather than authored page documents.'],
+        ['commit gate', 'Code-bus mutation requires explicit --commit.'],
+        ['Helix code API', 'Triggers code sync or returns job/status details for follow-up.'],
+      ] },
+    ] },
+  ],
+};
 
+const nodeLayer = document.getElementById('nodes-layer');
+const edgeLayer = document.getElementById('edges-layer');
 const list = document.getElementById('workflow-list');
-const title = document.getElementById('workflow-title');
-const summary = document.getElementById('workflow-summary');
-const flow = document.getElementById('workflow-flow');
-const command = document.getElementById('workflow-command');
-const notes = document.getElementById('workflow-notes');
+const active = document.getElementById('active-label');
+const steps = document.getElementById('workflow-steps');
 
-function render(item) {
-  title.textContent = item.name;
-  summary.textContent = item.summary;
-  command.textContent = item.command;
-  flow.replaceChildren(...item.flow.map((step, i) => {
-    const node = document.createElement('div');
-    node.className = 'flow-node';
-    node.innerHTML = `<strong>${i + 1}. ${step}</strong><span>${item.name}</span>`;
-    return node;
-  }));
-  notes.replaceChildren(...item.notes.map((note) => {
-    const li = document.createElement('li');
-    li.textContent = note;
-    return li;
-  }));
-  document.querySelectorAll('.workflow-command').forEach((button) => {
-    button.classList.toggle('active', button.textContent === item.name);
+function center(node, bottom = false) {
+  return [node.x + node.w / 2, node.y + (bottom ? node.h : 0)];
+}
+
+function draw() {
+  DATA.edges.forEach((edge) => {
+    const from = DATA.nodes.find((node) => node.id === edge.from);
+    const to = DATA.nodes.find((node) => node.id === edge.to);
+    const [x1, y1] = center(from, true);
+    const [x2, y2] = center(to);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.id = edge.id;
+    path.classList.add('edge');
+    path.setAttribute('d', `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`);
+    path.setAttribute('marker-end', 'url(#arr)');
+    edgeLayer.append(path);
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.id = `${edge.id}-label`;
+    label.classList.add('edgelbl');
+    label.setAttribute('x', (x1 + x2) / 2 - 34);
+    label.setAttribute('y', (y1 + y2) / 2 - 4);
+    label.textContent = edge.label;
+    edgeLayer.append(label);
+  });
+
+  DATA.nodes.forEach((node) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.id = node.id;
+    g.classList.add('nd', `nd-${node.type}`);
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', node.x);
+    rect.setAttribute('y', node.y);
+    rect.setAttribute('width', node.w);
+    rect.setAttribute('height', node.h);
+    rect.setAttribute('rx', 7);
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.classList.add('lbl');
+    label.setAttribute('x', node.x + 14);
+    label.setAttribute('y', node.y + 23);
+    label.textContent = node.label;
+    const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sub.classList.add('sub');
+    sub.setAttribute('x', node.x + 14);
+    sub.setAttribute('y', node.y + 42);
+    sub.textContent = node.sub;
+    g.append(rect, label, sub);
+    nodeLayer.append(g);
   });
 }
 
-workflows.forEach((item) => {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'workflow-command';
-  button.textContent = item.name;
-  button.addEventListener('click', () => render(item));
-  list.append(button);
-});
+function render(item) {
+  active.textContent = `${item.syntax} — ${item.label}`;
+  document.querySelectorAll('.workflow-command').forEach((button) => {
+    button.classList.toggle('active', button.dataset.id === item.id);
+  });
+  document.querySelectorAll('.nd').forEach((node) => {
+    node.classList.toggle('hi', item.nodes.includes(node.id));
+    node.classList.toggle('dim', !item.nodes.includes(node.id));
+  });
+  DATA.edges.forEach((edge) => {
+    const path = document.getElementById(edge.id);
+    const label = document.getElementById(`${edge.id}-label`);
+    const on = item.edges.includes(edge.id);
+    path.className.baseVal = `edge ${on ? `hi hi-${edge.color}` : 'dim'}`;
+    path.setAttribute('marker-end', on ? `url(#arr-${edge.color})` : 'url(#arr)');
+    label.className.baseVal = `edgelbl ${on ? 'hi' : 'dim'}`;
+  });
+  steps.replaceChildren(...item.steps.map(([code, text], index) => {
+    const row = document.createElement('div');
+    row.className = 'workflow-step';
+    row.innerHTML = `<div class="workflow-step-number">${index + 1}</div><div><div class="workflow-step-code">${code}</div><div class="workflow-step-text">${text}</div></div>`;
+    row.addEventListener('mouseenter', () => row.classList.add('active'));
+    row.addEventListener('mouseleave', () => row.classList.remove('active'));
+    return row;
+  }));
+}
 
-render(workflows[1]);
+draw();
+DATA.groups.forEach((group) => {
+  const title = document.createElement('div');
+  title.className = 'workflow-group-title';
+  title.textContent = group.name;
+  list.append(title);
+  group.items.forEach((item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'workflow-command';
+    button.dataset.id = item.id;
+    button.textContent = item.label;
+    button.addEventListener('click', () => render(item));
+    list.append(button);
+  });
+});
+render(DATA.groups[1].items[0]);
 </script>
 </body>
 </html>
