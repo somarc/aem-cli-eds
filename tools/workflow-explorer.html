@@ -529,6 +529,8 @@ function render(item, options = {}) {
   document.querySelectorAll('.workflow-command').forEach((button) => {
     button.classList.toggle('active', button.dataset.id === item.id);
   });
+  const activeButton = document.querySelector(`.workflow-command[data-id="${item.id}"]`);
+  activeButton?.scrollIntoView({ block: 'nearest', inline: 'center' });
   if (activeStep >= 0) {
     highlightStep(item, activeStep);
   } else {
