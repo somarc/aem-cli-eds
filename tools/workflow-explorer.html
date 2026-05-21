@@ -16,14 +16,14 @@
     <a href="/">AEM CLI Docs</a>
     <span>/</span>
     <strong>Workflow Explorer</strong>
-    <span id="workflow-breadcrumb">32 command surfaces · content-bus + code-bus command map</span>
+    <span id="workflow-breadcrumb">31 command surfaces · content-bus + code-bus command map</span>
     <button class="workflow-share" id="workflow-share" type="button">copy link</button>
   </nav>
   <div class="workflow-shell">
     <aside class="workflow-side">
       <div class="workflow-side-header">
         <h1>AEM CLI Commands</h1>
-        <p>Trace all 32 registered command surfaces from shell input to DA, Helix, Git, browser tooling, and local state.</p>
+        <p>Trace all 31 surfaced command flows from shell input to DA, Helix, Git, browser tooling, and local state.</p>
       </div>
       <div id="workflow-list"></div>
     </aside>
@@ -262,11 +262,6 @@ const DATA = {
         ['proxy/cache', 'Uses headers, cache, TLS, and insecure-request options for migration work.'],
         ['browser tooling', 'Opens the importer experience against the local server.'],
       ] },
-      { id: 'hack', label: 'aem hack', syntax: 'aem hack --event <name>', edges: ['e-cli-server', 'e-server-browser'], nodes: ['cli', 'server', 'browser'], steps: [
-        ['src/hack.js', 'Registers the hackathon helper command from the inherited AEM CLI surface.'],
-        ['event option', 'Uses the selected event profile to bootstrap the experience.'],
-        ['browser', 'Opens the local helper UI when requested.'],
-      ] },
     ] },
   ],
 };
@@ -365,11 +360,11 @@ function updateHash(item = currentItem, step = activeStep) {
 
 function updateBreadcrumb(item = currentItem, step = activeStep) {
   if (!item) {
-    breadcrumb.textContent = '32 command surfaces · content-bus + code-bus command map';
+    breadcrumb.textContent = '31 command surfaces · content-bus + code-bus command map';
     return;
   }
   const group = groupByCommand[item.id] || 'commands';
-  const parts = ['32 command surfaces', group, item.label];
+  const parts = ['31 command surfaces', group, item.label];
   if (Number.isInteger(step) && step >= 0) parts.push(`step ${step + 1}`);
   breadcrumb.textContent = parts.join(' / ');
 }
